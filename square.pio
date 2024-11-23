@@ -1,0 +1,31 @@
+;
+; PIO program to generate a 50% duty square wave using the system clock
+; FIFO sends the counts per half cycle
+; FIFO value = 62500000/frequency - 4
+
+; Side-set pin 0 is used for output
+.pio_version 0 // only requires PIO version 0
+
+.program square
+.side_set 1 opt
+    pull noblock    side 0 ; Pull from FIFO to OSR if available, else copy X to OSR. Set output low
+    mov  x  osr            ; Copy most-recently-pulled value back to scratch X
+    mov  y  x              ; Copy x to counter register y
+loop1:
+    jmp  y-- loop1         ; Loop until y==0
+    jmp  init2      side 1 ; when y==0 start negative part of cycle
+init2:
+    mov  y  x              ; Copy x to counter register y
+	nop				       ; Null operation, to compensate for FIFO pull at start of loop 1 to keep duty at 50%	
+loop2:
+    jmp y-- loop2          ; Loop until y==0, then go back to start
+
+% c-sdk {
+static inline void square_program_init(PIO pio, uint sm, uint offset, uint pin) {
+   pio_gpio_init(pio, pin);
+   pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+   pio_sm_config c = square_program_get_default_config(offset);
+   sm_config_set_sideset_pins(&c, pin);
+   pio_sm_init(pio, sm, offset, &c);
+}
+%}
