@@ -9,22 +9,25 @@
 
 class SquarePIO {
   public:
- //   SquarePIO(PIO PIO_instance, uint pin, uint32_t initial_frequency);     //pio0 or pio1
-    SquarePIO(uint pin, uint32_t initial_frequency);     //pio0 or pio1
-    uint32_t setFrequency(uint32_t frequency);
-    uint32_t getFrequency() {return _freq;};
+    //SquarePIO(PIO PIO_instance, uint pin, uint32_t initial_frequency);     //pio0 or pio1
+    SquarePIO(uint pin, uint32_t initial_frequency, PIO pio=pio0);     //pio0 or pio1
+    bool addChannel(uint pin, uint32_t initial_frequency);
+    uint32_t setFrequency(uint32_t frequency) { return setFrequency(0, frequency);};  // default to ch0
+    uint32_t setFrequency(uint channel, uint32_t frequency);
     
-    void enable(void);
-    void disable(void);
+    uint32_t getReqFrequency(uint channel=0) {return _requested_freq[channel];};  
+    uint32_t getFrequency(uint channel=0) {return _actual_freq[channel];};
+
+    void enable(uint channel=0);
+    void disable(uint channel=0);
 
   private:
     PIO _pio;         // which PIO we are using pio0 or pio1
-    uint _sm;         // which state machine (4 available per PIO)
     uint _offset;     // memory offset of the program
-    uint _pin;
-    uint32_t _freq;    // set frequency
-    uint32_t _actual_freq;    // actual frequency
-    
+    uint _pin[4];
+    uint32_t _requested_freq[4] = {0};    // set frequency
+    uint32_t _actual_freq[4]    = {0};    // actual frequency
+    uint _n_channels;   // number of active channels
 };
 
 #endif
