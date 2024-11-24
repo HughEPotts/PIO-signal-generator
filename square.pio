@@ -2,6 +2,8 @@
 ; PIO program to generate a 50% duty square wave using the system clock
 ; FIFO sends the counts per half cycle
 ; FIFO value = 62500000/frequency - 4
+; TODO: can we remove 1 clock cycle from the loop1 part of the sequence to improve HF performance?
+
 
 ; Side-set pin 0 is used for output
 .pio_version 0 // only requires PIO version 0

@@ -45,11 +45,11 @@ int main()
     printf("   pio1, CH0: Requested frequency: %d Hz  Actual frequency: %d Hz\n", sig_gen1.getReqFrequency(0), sig_gen1.getFrequency(0) );
     printf("   pio2: CH1: Requested frequency: %d Hz  Actual frequency: %d Hz\n", sig_gen1.getReqFrequency(1), sig_gen1.getFrequency(1) );
     
-    for (int i=0; i<=3; i++) {
-        sig_gen0.enable(i);
+    for (int i=0; i<4; i++) {
+        sig_gen0.enable(i, true);
     }
     for (int i=0; i<=1; i++) {
-        sig_gen1.enable(i);
+        sig_gen1.enable(i, true);
     }
     
     int step = 1;
@@ -72,15 +72,9 @@ int main()
         freq += step;
 
         // Alternately pulse the output for the two pio2 channels
-        if (pulse) {
-            sig_gen1.enable(0);
-            sig_gen1.disable(1);
-        } else {
-            sig_gen1.disable(0);
-            sig_gen1.enable(1);
-        }
-        pulse = !pulse;
-            
+        sig_gen1.enable(0, pulse);
+        sig_gen1.enable(1, !pulse);
+        pulse = !pulse;            
     }
 
 }

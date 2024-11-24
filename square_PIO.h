@@ -18,8 +18,10 @@ class SquarePIO {
     uint32_t getReqFrequency(uint channel=0) {return _requested_freq[channel];};  
     uint32_t getFrequency(uint channel=0) {return _actual_freq[channel];};
 
-    void enable(uint channel=0);
-    void disable(uint channel=0);
+    void enable(uint channel, bool state);
+    void enable(bool state) {enable(0, state);}; 
+
+    void allOff(void);
 
   private:
     PIO _pio;         // which PIO we are using pio0 or pio1
