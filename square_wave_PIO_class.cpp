@@ -1,5 +1,10 @@
-/* Square wave signal generator, using square_PIO
- * Generates square waves on both PIOs
+/* 
+ * Square wave signal generator, using square_PIO
+ * Generates square waves on two PIOs, giving a total of 
+ * 6 independantly contraollable square wave outputs.
+ * Max channels possible:
+ *      pico1: 8 channels
+ *      pico2: 12 channels
 
 */
 
@@ -8,36 +13,34 @@
 #include "hardware/pio.h"
 #include "square_PIO.h"
 
-
-#ifndef OUTPUT_PIN0  
-#define OUTPUT_PIN0 0
-#define OUTPUT_PIN1 1
-#define OUTPUT_PIN2 2
-#define OUTPUT_PIN3 3
-#define OUTPUT_PIN4 4
-#define OUTPUT_PIN5 5
+#ifndef OUTPUT_PIO0_CH0  
+#define OUTPUT_PIO0_CH0 0
+#define OUTPUT_PIO0_CH1 1
+#define OUTPUT_PIO0_CH2 2
+#define OUTPUT_PIO0_CH3 3
+#define OUTPUT_PIO1_CH0 4
+#define OUTPUT_PIO1_CH1 5
 #endif
 
 
 int main()
 {
     stdio_init_all();
-    sleep_ms(5000);  // just to give time for Serial to initialise
+    sleep_ms(1000);  // just to give time for Serial to initialise
     printf("\n\nLow frequency demo\n");
     printf("Loading square.pio onto pio0, with initial frequency of 1000 Hz\n");
  
-    SquarePIO sig_gen0( OUTPUT_PIN0, 1000);       // default pio = pio0
+    SquarePIO sig_gen0( OUTPUT_PIO0_CH0, 1000);     // if pio not specified, use pio0
     printf("Adding 3 extra channels to pio0 at 1001Hz, 1002Hz and 1003Hz\n");
-    sig_gen0.addChannel(OUTPUT_PIN1, 1001);
-    sig_gen0.addChannel(OUTPUT_PIN2, 1002);
-    sig_gen0.addChannel(OUTPUT_PIN3, 1003);
+    sig_gen0.addChannel(OUTPUT_PIO0_CH1, 1001);
+    sig_gen0.addChannel(OUTPUT_PIO0_CH2, 1002);
+    sig_gen0.addChannel(OUTPUT_PIO0_CH3, 1003);
 
-   
     printf("\nHigh frequency demo\n");
     printf("Loading square.pio onto pio1, with ;initial requested frequency of 15 Mhz\n");    
-    SquarePIO sig_gen1(OUTPUT_PIN4, 15000000, pio1);    
+    SquarePIO sig_gen1(OUTPUT_PIO1_CH0, 15000000, pio1);    
     printf("Adding extra channel at 12.5 MHz");
-    sig_gen1.addChannel(OUTPUT_PIN5, 12500000);         // actual frequency will be 125MHz/8 = 15.625MHz
+    sig_gen1.addChannel(OUTPUT_PIO1_CH1, 12500000);         // actual frequency will be 125MHz/8 = 15.625MHz
     printf("Actual frequencies may be slightly different, as they must be divisors of the main system clock/2: \n"); 
     printf("   pio1, CH0: Requested frequency: %d Hz  Actual frequency: %d Hz\n", sig_gen1.getReqFrequency(0), sig_gen1.getFrequency(0) );
     printf("   pio2: CH1: Requested frequency: %d Hz  Actual frequency: %d Hz\n", sig_gen1.getReqFrequency(1), sig_gen1.getFrequency(1) );
