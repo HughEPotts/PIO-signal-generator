@@ -23,10 +23,13 @@
 #endif
 
 
-int main()
+int main()   
 {
     stdio_init_all();
     sleep_ms(1000);  // just to give time for Serial to initialise
+
+    printf("System clock: %d MHz", SYS_CLK_MHZ);      
+
     printf("\n\nLow frequency demo\n");
     printf("Loading square.pio onto pio0, with initial frequency of 1000 Hz\n");
  
@@ -39,7 +42,7 @@ int main()
     printf("\nHigh frequency demo\n");
     printf("Loading square.pio onto pio1, with ;initial requested frequency of 15 Mhz\n");    
     SquarePIO sig_gen1(OUTPUT_PIO1_CH0, 15000000, pio1);    
-    printf("Adding extra channel at 12.5 MHz");
+    printf("Adding extra channel at 12.5 MHz\n");
     sig_gen1.addChannel(OUTPUT_PIO1_CH1, 12500000);         // actual frequency will be 125MHz/8 = 15.625MHz
     printf("Actual frequencies may be slightly different, as they must be divisors of the main system clock/2: \n"); 
     printf("   pio1, CH0: Requested frequency: %d Hz  Actual frequency: %d Hz\n", sig_gen1.getReqFrequency(0), sig_gen1.getFrequency(0) );
@@ -74,7 +77,7 @@ int main()
         // Alternately pulse the output for the two pio2 channels
         sig_gen1.enable(0, pulse);
         sig_gen1.enable(1, !pulse);
-        pulse = !pulse;            
+        pulse = !pulse;   
     }
 
 }

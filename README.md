@@ -20,7 +20,6 @@ Note: the frequency is always even integer divisors of system clock (125Mhz for 
 The actual frequency is returned when the frequency is set. At frequencies <8kHz the error is less than 1Hz, and the actual output frequency is never less than the requested frequency.
 
 This software is in an early state of development, and the following will be modified/improved/debuged in the near future:
-* Correct output frequency for pico2 devices
 * Overload 'setFrequency' to allow floating point frequencies (and hence frequencies <1Hz)  
 
  

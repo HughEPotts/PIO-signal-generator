@@ -34,16 +34,17 @@ uint32_t SquarePIO::setFrequency(uint channel, uint32_t frequency) {
 
     // we can only generate frequencies that are divisors of the system clock/2 (ie 62.5Mhz)
     // with a min divisor of 4 when PIO_counter_val=0
-    // with a max freq of 15.6MHz (clock/8)  when PIO_counter_val = 0
+    // with a max freq (pico1) of:
+    //                    15.6MHz (clock/8)  when PIO_counter_val = 0
     //                    12.4MHz (clock/10) when PIO_counter_val = 1
     //                    10.4MHz (clock/12) when PIO_counter_val = 2
-    // the frequency is then given by: freq = 62500000/(PIO_counter_val+4)
-    // or PIO_counter_val = (62500000/freq) - 4
+    // the frequency is then given by: freq = SYS_CLK_HZ/(PIO_counter_val+4)*2
+    // or PIO_counter_val = (SYS_CLK_HZ/freq*2) - 4
     // error is less than 1Hz up to 7976Hz, error is always positive 
-    // we can probably reduce the error by making it symmetrical
-    uint32_t PIO_counter_val = 62500000/frequency - 4;
+
+    uint32_t PIO_counter_val = SYS_CLK_HZ/(frequency * 2) - 4;
     _requested_freq[channel] = frequency;
-    _actual_freq[channel] = 62500000/(PIO_counter_val+4);
+    _actual_freq[channel] = SYS_CLK_HZ/ ((PIO_counter_val+4) * 2);
     pio_sm_put_blocking(_pio, channel, PIO_counter_val); 
     return _actual_freq[channel] ;
 }
