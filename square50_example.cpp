@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
-#include "square_PIO.h"
+#include "square50.h"
 
 #ifndef OUTPUT_PIO0_CH0  
 #define OUTPUT_PIO0_CH0 0
