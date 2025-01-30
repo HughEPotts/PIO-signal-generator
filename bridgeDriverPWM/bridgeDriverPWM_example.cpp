@@ -28,9 +28,13 @@ int main()
 
     printf("\n\nOuputs on GPIO0 and GPIO1\n\n");
  
-    uint32_t init_vals = 250 << 16 | 250;
+    uint32_t init_vals = 10<<16 | 10;
 
     bridgeDriverPWM bridge_driver0( OUTPUT_PIO0_CH0, init_vals);     // if pio not specified, use pio0
     bridge_driver0.enable(0, true);
+    sleep_ms(2000);
+
+    bridge_driver0.setFrequency(init_vals);
+
 
 }
