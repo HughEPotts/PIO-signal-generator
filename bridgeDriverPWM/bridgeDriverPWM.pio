@@ -1,56 +1,68 @@
 ;
 ; PIO program to generate a suitable signal for an H bridge or half bridge.
 ; This will produce outputs on two consecutive pins with controllabe frequency
-; and duty
+; and duty, alternating between the two pins. Min on and off times are 3 clock cycles
+; so 0% and 100% are not attainable
 
 ; Control data in sent in a 32bit word on the FIFO:
-;   16 MSB: ON counter  (T1)
-;   16 LSB: OFF counter (T2)
-; Period  = (2*T1 + 2*T2) * system clock (maybe add clock divider?)
-; Duty = T1/(T1 + T2)
+;   16 MSB: ON  counter T1  (+3 cycles)
+;   16 LSB: OFF counter T2  (+3 cycles)
+; Timing (in clock cycles):
+;   - ON time:                     T1 + 3 
+;   - Both OFF time:               T2 + 3 
+;   - Individual channel OFF time: T1 + 2*T2 + 9 
+;   - Period P:                    2*T1 + 2*T2 + 12
+;   - Single channel Duty =        T1+3 / (T1 + T2 + 6) 
+; 
+;         <------- P ------>
+;          ____              ____
+;  CH1: __|    |____________|    |_____________
+;                   ____               ____
+;  CH2: ___________|    |_____________|    |___
+;              T1+3 <--> <--> T2+3
 
-.pio_version 0 // only requires PIO version 0
+; The fastest possible is with both delays set to 0 - giving 3 clock cycles per state, 12 total
+; This a 25% duty square wave on each channel, frequency 10.4MHz
+; The numbers in brackets give the timing steps from each transition with a O count for ON and OFF 
+; eg to get 250kHZ with a 20% duty on an RP2040 (clock 125MHz) requires:
+;   P = 500 cycles  (T1 + T2 + 6 = 250)
+;   T1 + 3 = 50  -> T1 = 47
+;   T2 + 3 = 200 -> T2 = 197
+  
+
+.pio_version 0  // only requires PIO version 0
 
 .program bridgeDriverPWM
 .side_set 2 opt
 
-// First get new data from the FIFO to the osr, or if not copy the previous value back to the osr
-mov x isr                  ; retrive previous value from temporary storage, also resets OSR counter to FULL    [1]
-pull noblock                 ;side 0b01            ; Pull from FIFO to OSR if available, if not copies X to OSR
-mov isr osr                  ; store value in isr (register for input back to the MCU)
+.wrap_target
+    // First get new data from the FIFO to the osr, or if not copy the previous value back to the osr
+    pull noblock                    ;[2] Pull from FIFO to OSR if available, if not copies X to OSR
+    mov  x   osr     side 0b01      ;[0] Store FIFO value in x for next cycle
 
-// move osr values to the ON counter (X) and OFF counter (Y)
-OUT X 16
-OUT Y 16
-
-// do on/off cycle for first outputs.  maybe use side sets?
-
-jmp on0 side 0b01
-on0:
-    jmp x-- on0
-
-jmp off0 side 0b00
-off0:
-    jmp y-- off0
-
-// do on/off cycle for second outputs  ADD SIDE SETS
-
-mov osr isr          ; retrive previous value from temporary storage, also resets OSR counter to FULL    [1]
-
-// move osr values to the ON counter (X) and OFF counter (Y)
-OUT X 16
-OUT Y 16
-
-// do on/off cycle for first outputs  ADD SIDE SETS
-
-jmp on1 side 0b10
-on1:
-    jmp x-- on1
-
-jmp off1 side 0b00
-off1:
-    jmp y-- off1
-
+    // Cycle first output pin
+    // move osr 16 least significant bits to the ON counter (Y)
+    out  y   16                     ;[1] 
+    on0:
+        jmp y-- on0                 ;[2]    
+    // move osr 16 most significant bits to the OFF counter (Y)
+    out   y   16        side 0b00   ;[0]   
+    off0:
+        jmp y-- off0                ;[1]
+    nop
+    mov osr x  side 0b10            ;[0] retrive previous value from temporary storage, also resets OSR counter to FULL    [1]
+    
+    // Cycle first output pin
+    // move osr 16 least significant bits to the ON counter (Y)
+    OUT   y   16                    ;[1]
+    on1:
+        jmp y-- on1                 ;[2]
+    // move osr  16MSB value to the OFF counter (Y)
+    OUT   y   16        side 0b00   ;[0]  
+        
+    off1:
+        jmp y-- off1                ;[1]
+.wrap
 
 % c-sdk {
 static inline void bridgeDriverPWM_program_init(PIO pio, uint sm, uint offset, uint pin) {
