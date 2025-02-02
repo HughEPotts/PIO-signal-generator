@@ -3,55 +3,97 @@
 
 //TODO: add function to delete programs and free up PIO units
 
-bridgeDriverPWM::bridgeDriverPWM(uint pin, uint32_t initial_vals, PIO pio) {
+
+bridgeDriverPWM::bridgeDriverPWM(uint pin, uint32_t initial_frequency, uint32_t initial_duty, PIO pio)  {
     // load program onto pio and activate state machine sm0
     // this pio program requires 2 pins - specify the first one, next consecutive one will be used
     // and will have the inverse signal on it
     _pio = pio;   
     _pin[0] = pin;
     _offset = pio_add_program(_pio, &bridgeDriverPWM_program);
-    uint channel=0;  // channel 0 is always on state machine 0
-    bridgeDriverPWM_program_init(_pio, channel, _offset, _pin[0]);
-    setFrequency(0, initial_vals);
+    uint channel=0;  // this is the first SM on the PIO, extra channels are added using addChannel()
     _n_channels = 1;
+    bridgeDriverPWM_program_init(_pio, channel, _offset, _pin[0]);
+    setFreqDuty(channel, initial_frequency, initial_duty);
 }
 
-bool bridgeDriverPWM::addChannel(uint pin, uint32_t initial_vals) {
+bool bridgeDriverPWM::addChannel(uint pin, uint32_t initial_frequency, uint32_t initial_duty) {
    //add additional square wave generators to other state machines within the PIO
    // ensure the pins do not overlap the pins from other channels 
    hard_assert (_n_channels <= 3);    // max 4 state machines (channels) per PIO
    uint new_channel = _n_channels;  
    pio_sm_claim(_pio, new_channel);   // put new channel on next available state machine
    bridgeDriverPWM_program_init(_pio, new_channel, _offset, pin);
-   
-   setFrequency(new_channel, initial_vals);
+   //setFreqDuty(new_channel, initial_frequency, initial_duty);
    _pin[new_channel] = pin;
    _n_channels ++;       // total number of state machines (channels) used on this PIO device
-
    return true;
 }
 
-uint32_t bridgeDriverPWM::setFrequency(uint channel, uint32_t vals) {
-    // sends the counter value using the FIFO register. We could also write directly
-    // see blink pio example, or just make a blank project with pio enabled
-
-    // we can only generate frequencies that are divisors of the system clock/2 (ie 62.5Mhz)
-    // with a min divisor of 4 when PIO_counter_val=0
-    // with a max freq (pico1) of:
-    //                    15.6MHz (clock/8)  when PIO_counter_val = 0
-    //                    12.4MHz (clock/10) when PIO_counter_val = 1
-    //                    10.4MHz (clock/12) when PIO_counter_val = 2
-    // the frequency is then given by: freq = SYS_CLK_HZ/(PIO_counter_val+4)*2
-    // or PIO_counter_val = (SYS_CLK_HZ/freq*2) - 4
-    // error is less than 1Hz up to 7976Hz, error is always positive 
-
-    //uint32_t PIO_counter_val = SYS_CLK_HZ/(frequency * 2) - 4;
-    //_requested_freq[channel] = frequency;
-    //_actual_freq[channel] = SYS_CLK_HZ/ ((PIO_counter_val+4) * 2);
-    pio_sm_put_blocking(_pio, channel, vals); 
-    return vals; //  _actual_freq[channel] ;
+void bridgeDriverPWM::setTimingRegister(uint channel, uint32_t regval)  {
+    // sends the timing register using the FIFO register. 
+    pio_sm_put_blocking(_pio, channel, regval); 
+    _regval[channel] = regval;
 }
 
+uint32_t bridgeDriverPWM::_calculateTimingRegisters(uint32_t freq, uint32_t duty) {
+    // calculates the timing register values based on the system clock and requested frequency and duty
+    // First calculate period
+    uint32_t period = SYS_CLK_HZ / (2 * freq);    // period of half-cycle in clock cycles 
+    //XXXTODO add in range checking for freq
+    // then get the on and off times from this
+    uint32_t ontime = (period * duty) / 1000;
+    uint32_t T1 = ontime - 3;  // see bridgeDriverPWM.pio for details 
+    uint32_t T2 = period - ontime - 3;
+    uint32_t regval = (T2<<16) | T1;
+    return regval;
+}
+
+uint32_t bridgeDriverPWM::setFrequency(uint channel, uint32_t frequency) {
+    // calculate the timing values 
+    if (frequency == 0) {
+        // impossible frequency - just disable the generator and set timing register to 0
+        enable(channel, false);
+        setTimingRegister(channel, 0);
+        //XXXTODO possible set an error here? perhaps have a _status variable?
+        return frequency;   //XXXFIXME calculate the true freq
+    } else {
+        uint32_t regval = _calculateTimingRegisters(frequency, _requested_duty[channel]);
+        _requested_freq[channel] = frequency;
+        setTimingRegister(channel, regval); 
+        return frequency;  
+    } 
+}
+
+uint32_t bridgeDriverPWM::setDuty(uint channel, uint duty1000) {
+    if (duty1000 == 0) {
+    // Just turn off, but leave the frequency unchanged 
+    enable(channel, false); 
+    }
+    uint32_t regval = _calculateTimingRegisters(_requested_freq[channel], duty1000);
+    _requested_duty[channel] = duty1000;
+    setTimingRegister(channel, regval); 
+    return 0;
+}
+
+bool bridgeDriverPWM::setFreqDuty(uint channel, uint32_t frequency, uint32_t duty1000)
+{
+    bool retval = false;
+    if ((frequency == 0) || (duty1000 == 0)) {
+        enable(channel, false);
+        if (frequency == 0) {
+            // impossible frequency - just disable the generator and set timing register to 0
+            setTimingRegister(channel, 0);
+        }
+    } else {
+        uint32_t regval = _calculateTimingRegisters(frequency, duty1000);
+        setTimingRegister(channel, regval); 
+        _requested_freq[channel] = frequency;
+        _requested_duty[channel] = duty1000;
+        retval = true;
+    }
+    return retval;
+}
 
 void bridgeDriverPWM::enable(uint channel, bool state) {
     if (state==true) {
